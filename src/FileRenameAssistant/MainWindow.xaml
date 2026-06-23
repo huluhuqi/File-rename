@@ -1,0 +1,321 @@
+<Window x:Class="FileRenameAssistant.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="文件重命名助手 v1.0 WPF 自包含版"
+        Width="1360"
+        Height="900"
+        MinWidth="1320"
+        MinHeight="840"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="4*"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部工具栏 -->
+        <Border Grid.Row="0" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,12" Panel.ZIndex="20">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="Assets/Icons/app.png" Width="34" Height="34" Margin="0,0,10,0"/>
+                    <TextBlock Text="文件重命名助手" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
+                <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Click="RemoveSelectedFile_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/remove.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="从列表移除"/></StackPanel></Button>
+                    <Button Click="RefreshPreview_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/refresh.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="立即刷新"/></StackPanel></Button>
+                    <Button Click="Execute_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/run.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="执行重命名"/></StackPanel></Button>
+                    <Button Click="Undo_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/undo.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="撤销"/></StackPanel></Button>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- 中间主区域 -->
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.95*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="2*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 左列：排序条件 + 状态摘要 -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 排序条件卡片 -->
+                <Border Grid.Row="0" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="12" Padding="14" Panel.ZIndex="10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="1、排序条件" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                        <TextBlock Grid.Row="1" Text="按列表从上到下确定优先级，先排序后重命名。" Foreground="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                        <!-- 排序条件列表：固定4行高度，超出滚动 -->
+                        <Border Grid.Row="2" Height="122" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="6" Padding="4" Margin="0,0,0,8">
+                            <ListBox ItemsSource="{Binding SortConditions}" SelectedItem="{Binding SelectedSortCondition}" BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding DisplayName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" Margin="4,0,0,0"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <Button Tag="{Binding}" Click="MoveSortItemUp_Click" Style="{x:Null}" BorderThickness="0" Background="Transparent" Padding="2" MinWidth="0" MinHeight="0" Cursor="Hand">
+                                                    <Image Source="Assets/Icons/up.png" Width="14" Height="14"/>
+                                                </Button>
+                                                <Button Tag="{Binding}" Click="MoveSortItemDown_Click" Style="{x:Null}" BorderThickness="0" Background="Transparent" Padding="2" MinWidth="0" MinHeight="0" Cursor="Hand">
+                                                    <Image Source="Assets/Icons/down.png" Width="14" Height="14"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <StackPanel Grid.Row="3">
+                            <TextBlock Text="新增排序字段"/>
+                            <ComboBox SelectedIndex="{Binding NewSortFieldIndex}">
+                                <ComboBoxItem Content="自然文件名"/>
+                                <ComboBoxItem Content="文件类型/扩展名"/>
+                                <ComboBoxItem Content="创建日期"/>
+                                <ComboBoxItem Content="文件大小"/>
+                                <ComboBoxItem Content="修改日期"/>
+                            </ComboBox>
+                            <CheckBox Content="新增条件倒序" IsChecked="{Binding NewSortDescending}"/>
+                            <WrapPanel Margin="0,4,0,0">
+                                <Button Click="AddSortCondition_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/add.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="添加条件"/></StackPanel></Button>
+                                <Button Click="RemoveSortCondition_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/delete.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="删除条件"/></StackPanel></Button>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 状态摘要卡片 -->
+                <Border Grid.Row="2" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="12" Padding="14">
+                    <StackPanel>
+                        <TextBlock Text="状态摘要" FontSize="18" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding SummaryText}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding RefreshStateText}" Foreground="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <ProgressBar IsIndeterminate="True" Height="8" Margin="0,12,0,0" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Text="最近历史" FontSize="15" FontWeight="SemiBold" Margin="0,14,0,6"/>
+                        <ItemsControl ItemsSource="{Binding RecentHistorySummaries}"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 右列：重命名目标与规则链 -->
+            <Border Grid.Column="2" Background="{StaticResource CardBackground}" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="12" Padding="14" Panel.ZIndex="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="2、重命名目标与规则链" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,6"/>
+
+                    <!-- 下方两列：修改对象+重命名方式(左) | 规则参数(右) -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="230"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="修改对象"/>
+                                <ComboBox SelectedIndex="{Binding RenameTargetIndex}">
+                                    <ComboBoxItem Content="文件名"/>
+                                    <ComboBoxItem Content="扩展名"/>
+                                </ComboBox>
+
+                                <TextBlock Text="重命名方式" Margin="0,8,0,0"/>
+                                <!-- 重命名方式列表：固定4行高度，超出滚动 -->
+                                <Border Height="122" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="6" Padding="4" Margin="0,2,0,8">
+                                    <ListBox ItemsSource="{Binding RenameSteps}" SelectedItem="{Binding SelectedRenameStep}" BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,1">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" Margin="4,0,0,0"/>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                        <Button Tag="{Binding}" Click="MoveRenameItemUp_Click" Style="{x:Null}" BorderThickness="0" Background="Transparent" Padding="2" MinWidth="0" MinHeight="0" Cursor="Hand">
+                                                            <Image Source="Assets/Icons/up.png" Width="14" Height="14"/>
+                                                        </Button>
+                                                        <Button Tag="{Binding}" Click="MoveRenameItemDown_Click" Style="{x:Null}" BorderThickness="0" Background="Transparent" Padding="2" MinWidth="0" MinHeight="0" Cursor="Hand">
+                                                            <Image Source="Assets/Icons/down.png" Width="14" Height="14"/>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Border>
+
+                                <ComboBox SelectedIndex="{Binding NewRenameRuleKindIndex}">
+                                    <ComboBoxItem Content="查找替换"/>
+                                    <ComboBoxItem Content="添加前缀"/>
+                                    <ComboBoxItem Content="添加后缀"/>
+                                    <ComboBoxItem Content="删除文字"/>
+                                    <ComboBoxItem Content="自动编号"/>
+                                    <ComboBoxItem Content="全大写"/>
+                                    <ComboBoxItem Content="全小写"/>
+                                    <ComboBoxItem Content="首字母大写"/>
+                                    <ComboBoxItem Content="单词首字母大写"/>
+                                </ComboBox>
+                                <WrapPanel>
+                                    <Button Click="AddRenameStep_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/add.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="添加"/></StackPanel></Button>
+                                    <Button Click="RemoveRenameStep_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/delete.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="删除"/></StackPanel></Button>
+                                </WrapPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- 右侧：按钮与规则参数，仅占用规则参数列上方空间 -->
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                    <Button Click="PickFiles_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/file.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="选择文件"/></StackPanel></Button>
+                                    <Button Click="PickFolder_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/folder.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="选择文件夹"/></StackPanel></Button>
+                                    <CheckBox Content="递归导入" IsChecked="{Binding RecursiveFolder}" VerticalAlignment="Center" Margin="4,0,0,6"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                    <Button Click="ImportExcelTemplate_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/import.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="导入文件名"/></StackPanel></Button>
+                                    <Button Click="ExportExcelTemplate_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/export.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="导出文件名"/></StackPanel></Button>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                    <Button Click="LoadRule_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/load.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="加载规则"/></StackPanel></Button>
+                                    <ComboBox ItemsSource="{Binding SavedProfiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name" Width="220" Margin="0,0,6,6"/>
+                                    <Button Click="DeleteRule_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/delete.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="删除规则"/></StackPanel></Button>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="规则名称" VerticalAlignment="Center" Margin="0,0,8,6"/>
+                                    <TextBox Width="220" Text="{Binding RuleName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,6,6"/>
+                                    <Button Click="SaveRule_Click"><StackPanel Orientation="Horizontal"><Image Source="Assets/Icons/save.png" Style="{StaticResource IconImageStyle}"/><TextBlock Text="保存规则"/></StackPanel></Button>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- 规则参数卡片 -->
+                            <Border Grid.Row="1" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="8" Padding="10" VerticalAlignment="Stretch">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="规则参数" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                                    <StackPanel Visibility="{Binding HasReplaceStep, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="查找替换"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="查找"/>
+                                                <TextBox Text="{Binding FindText, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="替换"/>
+                                                <DockPanel>
+                                                    <CheckBox DockPanel.Dock="Right" Content="正则" IsChecked="{Binding UseRegex}" VerticalAlignment="Center"/>
+                                                    <TextBox Text="{Binding ReplaceText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </DockPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <StackPanel Visibility="{Binding HasPrefixStep, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="前缀"/>
+                                        <TextBox Text="{Binding PrefixText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Visibility="{Binding HasSuffixStep, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="后缀"/>
+                                        <TextBox Text="{Binding SuffixText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Visibility="{Binding HasRemoveTextStep, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="删除文字"/>
+                                        <TextBox Text="{Binding RemoveText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                    <StackPanel Visibility="{Binding HasNumberingStep, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="自动编号"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel Width="86">
+                                                <TextBlock Text="起始"/>
+                                                <TextBox Text="{Binding NumberStart, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </StackPanel>
+                                            <StackPanel Width="86">
+                                                <TextBlock Text="步长"/>
+                                                <TextBox Text="{Binding NumberStep, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </StackPanel>
+                                            <StackPanel Width="86">
+                                                <TextBlock Text="补零"/>
+                                                <TextBox Text="{Binding NumberDigits, UpdateSourceTrigger=PropertyChanged}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <TextBlock Text="大小写转换只影响当前选择的修改对象；修改扩展名时会复用同一套规则链。" Foreground="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 预览区域 -->
+        <Border Grid.Row="2" BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="12">
+            <DataGrid x:Name="PreviewGrid" ItemsSource="{Binding PreviewItems}" SelectedItem="{Binding SelectedPreviewItem}" AutoGenerateColumns="False" IsReadOnly="False" SelectionMode="Extended" GridLinesVisibility="Horizontal" HeadersVisibility="Column">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.22"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="原文件名" Binding="{Binding OriginalName}" Width="2*" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="新文件名（双击可改）" Binding="{Binding NewName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="2*"/>
+                    <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" Width="*" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="说明" Binding="{Binding Message}" Width="2*" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <TextBlock Grid.Row="3" Text="WPF 自包含版：不依赖 Windows App Runtime；输入规则后自动刷新预览。" Foreground="{StaticResource MutedText}" Margin="0,10,0,0"/>
+    </Grid>
+</Window>
