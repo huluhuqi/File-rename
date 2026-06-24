@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using FileRenameAssistant.Data;
 using FileRenameAssistant.Models;
@@ -22,20 +23,6 @@ public sealed class MainViewModel : ObservableObject
     private OperationHistory? _lastHistory;
     private bool _isApplyingProfile;
 
-    private bool _enableReplace;
-    private bool _useRegex;
-    private string _findText = "";
-    private string _replaceText = "";
-    private bool _enablePrefix;
-    private string _prefixText = "";
-    private bool _enableSuffix;
-    private string _suffixText = "";
-    private bool _enableRemoveText;
-    private string _removeText = "";
-    private bool _enableNumbering;
-    private double _numberStart = 1;
-    private double _numberStep = 1;
-    private double _numberDigits = 3;
     private int _selectedSortIndex;
     private bool _sortDescending;
     private bool _recursiveFolder;
@@ -65,24 +52,12 @@ public sealed class MainViewModel : ObservableObject
         _ruleRepository = new RuleProfileRepository(_database);
         _historyRepository = new HistoryRepository(_database);
         SortConditions.Add(new SortConditionViewModel(SortField.FileName));
-        RenameSteps.Add(new RenameRuleStepViewModel(RenameRuleKind.Replace));
+        var initialStep = new RenameRuleStepViewModel(RenameRuleKind.Replace);
+        initialStep.PropertyChanged += OnStepPropertyChanged;
+        RenameSteps.Add(initialStep);
         _ = LoadPersistedDataAsync();
     }
 
-    public bool EnableReplace { get => _enableReplace; set => SetAndRefresh(ref _enableReplace, value); }
-    public bool UseRegex { get => _useRegex; set => SetAndRefresh(ref _useRegex, value); }
-    public string FindText { get => _findText; set => SetAndRefresh(ref _findText, value); }
-    public string ReplaceText { get => _replaceText; set => SetAndRefresh(ref _replaceText, value); }
-    public bool EnablePrefix { get => _enablePrefix; set => SetAndRefresh(ref _enablePrefix, value); }
-    public string PrefixText { get => _prefixText; set => SetAndRefresh(ref _prefixText, value); }
-    public bool EnableSuffix { get => _enableSuffix; set => SetAndRefresh(ref _enableSuffix, value); }
-    public string SuffixText { get => _suffixText; set => SetAndRefresh(ref _suffixText, value); }
-    public bool EnableRemoveText { get => _enableRemoveText; set => SetAndRefresh(ref _enableRemoveText, value); }
-    public string RemoveText { get => _removeText; set => SetAndRefresh(ref _removeText, value); }
-    public bool EnableNumbering { get => _enableNumbering; set => SetAndRefresh(ref _enableNumbering, value); }
-    public double NumberStart { get => _numberStart; set => SetAndRefresh(ref _numberStart, value); }
-    public double NumberStep { get => _numberStep; set => SetAndRefresh(ref _numberStep, value); }
-    public double NumberDigits { get => _numberDigits; set => SetAndRefresh(ref _numberDigits, value); }
     public int SelectedSortIndex { get => _selectedSortIndex; set => SetAndRefresh(ref _selectedSortIndex, value); }
     public bool SortDescending { get => _sortDescending; set => SetAndRefresh(ref _sortDescending, value); }
     public bool RecursiveFolder { get => _recursiveFolder; set => SetProperty(ref _recursiveFolder, value); }
@@ -99,11 +74,6 @@ public sealed class MainViewModel : ObservableObject
     public int RenameTargetIndex { get => _renameTargetIndex; set => SetAndRefresh(ref _renameTargetIndex, value); }
     public RuleProfile? SelectedProfile { get => _selectedProfile; set => SetProperty(ref _selectedProfile, value); }
     public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
-    public bool HasReplaceStep => RenameSteps.Any(s => s.Kind == RenameRuleKind.Replace);
-    public bool HasPrefixStep => RenameSteps.Any(s => s.Kind == RenameRuleKind.Prefix);
-    public bool HasSuffixStep => RenameSteps.Any(s => s.Kind == RenameRuleKind.Suffix);
-    public bool HasRemoveTextStep => RenameSteps.Any(s => s.Kind == RenameRuleKind.RemoveText);
-    public bool HasNumberingStep => RenameSteps.Any(s => s.Kind == RenameRuleKind.Numbering);
 
     public string SummaryText
     {
@@ -182,9 +152,10 @@ public sealed class MainViewModel : ObservableObject
 
     public void AddRenameStep()
     {
-        RenameSteps.Add(new RenameRuleStepViewModel(MapRenameRuleKind(NewRenameRuleKindIndex)));
+        var step = new RenameRuleStepViewModel(MapRenameRuleKind(NewRenameRuleKindIndex));
+        step.PropertyChanged += OnStepPropertyChanged;
+        RenameSteps.Add(step);
         Message = "已添加重命名方式。重命名方式按列表从上到下执行。";
-        NotifyRenameStepVisibilityChanged();
         RefreshPreview();
     }
 
@@ -196,8 +167,8 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        SelectedRenameStep.PropertyChanged -= OnStepPropertyChanged;
         RenameSteps.Remove(SelectedRenameStep);
-        NotifyRenameStepVisibilityChanged();
         RefreshPreview();
     }
 
@@ -343,7 +314,7 @@ public sealed class MainViewModel : ObservableObject
         };
         await _ruleRepository.SaveAsync(profile);
         await ReloadProfilesAsync();
-        Message = $"规则“{name}”已保存。";
+        Message = $"规则「{name}」已保存。";
     }
 
     public async Task DeleteSelectedRuleAsync()
@@ -358,7 +329,7 @@ public sealed class MainViewModel : ObservableObject
         await _ruleRepository.DeleteAsync(SelectedProfile.Id);
         SelectedProfile = null;
         await ReloadProfilesAsync();
-        Message = $"规则“{name}”已删除。";
+        Message = $"规则「{name}」已删除。";
     }
 
     private IReadOnlyList<IRenameRule> BuildRules()
@@ -369,31 +340,23 @@ public sealed class MainViewModel : ObservableObject
             switch (step.Kind)
             {
                 case RenameRuleKind.Replace:
-                    if (!string.IsNullOrEmpty(FindText))
-                    {
-                        rules.Add(UseRegex ? new RegexReplaceRule(FindText, ReplaceText) : new ReplaceRule(FindText, ReplaceText));
-                    }
+                    if (!string.IsNullOrEmpty(step.FindText))
+                        rules.Add(step.UseRegex ? new RegexReplaceRule(step.FindText, step.ReplaceText) : new ReplaceRule(step.FindText, step.ReplaceText));
                     break;
                 case RenameRuleKind.Prefix:
-                    if (!string.IsNullOrEmpty(PrefixText))
-                    {
-                        rules.Add(new AddPrefixRule(PrefixText));
-                    }
+                    if (!string.IsNullOrEmpty(step.PrefixText))
+                        rules.Add(new AddPrefixRule(step.PrefixText));
                     break;
                 case RenameRuleKind.Suffix:
-                    if (!string.IsNullOrEmpty(SuffixText))
-                    {
-                        rules.Add(new AddSuffixRule(SuffixText));
-                    }
+                    if (!string.IsNullOrEmpty(step.SuffixText))
+                        rules.Add(new AddSuffixRule(step.SuffixText));
                     break;
                 case RenameRuleKind.RemoveText:
-                    if (!string.IsNullOrEmpty(RemoveText))
-                    {
-                        rules.Add(new RemoveTextRule(RemoveText));
-                    }
+                    if (!string.IsNullOrEmpty(step.RemoveText))
+                        rules.Add(new RemoveTextRule(step.RemoveText));
                     break;
                 case RenameRuleKind.Numbering:
-                    rules.Add(new NumberingRule((int)NumberStart, (int)NumberStep, (int)NumberDigits));
+                    rules.Add(new NumberingRule(step.NumberStart, step.NumberStep, step.NumberDigits));
                     break;
                 case RenameRuleKind.UpperAll:
                     rules.Add(new CaseConvertRule { Mode = CaseConvertMode.UpperAll });
@@ -454,57 +417,54 @@ public sealed class MainViewModel : ObservableObject
 
     private RuleProfileConfig BuildConfig() => new()
     {
-        EnableReplace = EnableReplace,
-        UseRegex = UseRegex,
-        FindText = FindText,
-        ReplaceText = ReplaceText,
-        EnablePrefix = EnablePrefix,
-        PrefixText = PrefixText,
-        EnableSuffix = EnableSuffix,
-        SuffixText = SuffixText,
-        EnableRemoveText = EnableRemoveText,
-        RemoveText = RemoveText,
-        EnableNumbering = EnableNumbering,
-        NumberStart = (int)NumberStart,
-        NumberStep = (int)NumberStep,
-        NumberDigits = (int)NumberDigits,
         SelectedSortIndex = SelectedSortIndex,
         SortDescending = SortDescending,
         ExtensionModeIndex = ExtensionModeIndex,
         RenameTargetIndex = RenameTargetIndex,
-        RenameStepKinds = RenameSteps.Select(s => (int)s.Kind).ToList()
+        Steps = RenameSteps.Select(s => new StepConfig
+        {
+            Kind = (int)s.Kind,
+            Enabled = s.Enabled,
+            FindText = s.FindText,
+            ReplaceText = s.ReplaceText,
+            UseRegex = s.UseRegex,
+            PrefixText = s.PrefixText,
+            SuffixText = s.SuffixText,
+            RemoveText = s.RemoveText,
+            NumberStart = s.NumberStart,
+            NumberStep = s.NumberStep,
+            NumberDigits = s.NumberDigits
+        }).ToList()
     };
 
     private void ApplyConfig(RuleProfileConfig config)
     {
         _isApplyingProfile = true;
-
-        EnableReplace = config.EnableReplace;
-        UseRegex = config.UseRegex;
-        FindText = config.FindText;
-        ReplaceText = config.ReplaceText;
-        EnablePrefix = config.EnablePrefix;
-        PrefixText = config.PrefixText;
-        EnableSuffix = config.EnableSuffix;
-        SuffixText = config.SuffixText;
-        EnableRemoveText = config.EnableRemoveText;
-        RemoveText = config.RemoveText;
-        EnableNumbering = config.EnableNumbering;
-        NumberStart = config.NumberStart;
-        NumberStep = config.NumberStep;
-        NumberDigits = config.NumberDigits;
         SelectedSortIndex = config.SelectedSortIndex;
         SortDescending = config.SortDescending;
         ExtensionModeIndex = config.ExtensionModeIndex;
         RenameTargetIndex = config.RenameTargetIndex;
 
         RenameSteps.Clear();
-        foreach (var kind in config.RenameStepKinds.DefaultIfEmpty((int)RenameRuleKind.Replace))
+        foreach (var stepConfig in config.Steps.DefaultIfEmpty(new StepConfig { Kind = (int)RenameRuleKind.Replace }))
         {
-            RenameSteps.Add(new RenameRuleStepViewModel((RenameRuleKind)kind));
+            var step = new RenameRuleStepViewModel((RenameRuleKind)stepConfig.Kind)
+            {
+                Enabled = stepConfig.Enabled,
+                FindText = stepConfig.FindText,
+                ReplaceText = stepConfig.ReplaceText,
+                UseRegex = stepConfig.UseRegex,
+                PrefixText = stepConfig.PrefixText,
+                SuffixText = stepConfig.SuffixText,
+                RemoveText = stepConfig.RemoveText,
+                NumberStart = stepConfig.NumberStart,
+                NumberStep = stepConfig.NumberStep,
+                NumberDigits = stepConfig.NumberDigits
+            };
+            step.PropertyChanged += OnStepPropertyChanged;
+            RenameSteps.Add(step);
         }
 
-        NotifyRenameStepVisibilityChanged();
         _isApplyingProfile = false;
     }
 
@@ -518,13 +478,34 @@ public sealed class MainViewModel : ObservableObject
         }).ToList();
     }
 
-    private void NotifyRenameStepVisibilityChanged()
+    private void OnStepPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        OnPropertyChanged(nameof(HasReplaceStep));
-        OnPropertyChanged(nameof(HasPrefixStep));
-        OnPropertyChanged(nameof(HasSuffixStep));
-        OnPropertyChanged(nameof(HasRemoveTextStep));
-        OnPropertyChanged(nameof(HasNumberingStep));
+        if (e.PropertyName == nameof(RenameRuleStepViewModel.Kind))
+        {
+            if (!_isApplyingProfile && _files.Count > 0)
+            {
+                RefreshStateText = "规则已变化，正在等待输入完成...";
+                _refreshScheduler.Schedule(_ =>
+                {
+                    RefreshPreview();
+                    return Task.CompletedTask;
+                });
+            }
+        }
+        else if (e.PropertyName != nameof(RenameRuleStepViewModel.Enabled) &&
+                 e.PropertyName != nameof(RenameRuleStepViewModel.DisplayName))
+        {
+            // 参数变更，触发预览刷新
+            if (!_isApplyingProfile && _files.Count > 0)
+            {
+                RefreshStateText = "规则已变化，正在等待输入完成...";
+                _refreshScheduler.Schedule(_ =>
+                {
+                    RefreshPreview();
+                    return Task.CompletedTask;
+                });
+            }
+        }
     }
 
     private async Task LoadPersistedDataAsync()

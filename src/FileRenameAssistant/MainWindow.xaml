@@ -229,59 +229,77 @@
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
                                         <TextBlock Text="规则参数" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                        <ItemsControl ItemsSource="{Binding RenameSteps}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border BorderBrush="{StaticResource BorderColor}" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" Margin="0,0,0,4"/>
 
-                                    <StackPanel Visibility="{Binding HasReplaceStep, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="查找替换"/>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="查找"/>
-                                                <TextBox Text="{Binding FindText, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="替换"/>
-                                                <DockPanel>
-                                                    <CheckBox DockPanel.Dock="Right" Content="正则" IsChecked="{Binding UseRegex}" VerticalAlignment="Center"/>
-                                                    <TextBox Text="{Binding ReplaceText, UpdateSourceTrigger=PropertyChanged}"/>
-                                                </DockPanel>
-                                            </StackPanel>
-                                        </Grid>
-                                    </StackPanel>
+                                                            <!-- Replace 参数 -->
+                                                            <Grid Visibility="{Binding Kind, Converter={StaticResource EnumToVisibility}, ConverterParameter=Replace}">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel Grid.Column="0">
+                                                                    <TextBlock Text="查找"/>
+                                                                    <TextBox Text="{Binding FindText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1">
+                                                                    <TextBlock Text="替换"/>
+                                                                    <DockPanel>
+                                                                        <CheckBox DockPanel.Dock="Right" Content="正则" IsChecked="{Binding UseRegex}" VerticalAlignment="Center"/>
+                                                                        <TextBox Text="{Binding ReplaceText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                    </DockPanel>
+                                                                </StackPanel>
+                                                            </Grid>
 
-                                    <StackPanel Visibility="{Binding HasPrefixStep, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="前缀"/>
-                                        <TextBox Text="{Binding PrefixText, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </StackPanel>
-                                    <StackPanel Visibility="{Binding HasSuffixStep, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="后缀"/>
-                                        <TextBox Text="{Binding SuffixText, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </StackPanel>
-                                    <StackPanel Visibility="{Binding HasRemoveTextStep, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="删除文字"/>
-                                        <TextBox Text="{Binding RemoveText, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </StackPanel>
-                                    <StackPanel Visibility="{Binding HasNumberingStep, Converter={StaticResource BoolToVisibility}}">
-                                        <TextBlock Text="自动编号"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <StackPanel Width="86">
-                                                <TextBlock Text="起始"/>
-                                                <TextBox Text="{Binding NumberStart, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </StackPanel>
-                                            <StackPanel Width="86">
-                                                <TextBlock Text="步长"/>
-                                                <TextBox Text="{Binding NumberStep, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </StackPanel>
-                                            <StackPanel Width="86">
-                                                <TextBlock Text="补零"/>
-                                                <TextBox Text="{Binding NumberDigits, UpdateSourceTrigger=PropertyChanged}"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </StackPanel>
+                                                            <!-- Prefix 参数 -->
+                                                            <StackPanel Visibility="{Binding Kind, Converter={StaticResource EnumToVisibility}, ConverterParameter=Prefix}">
+                                                                <TextBlock Text="前缀内容"/>
+                                                                <TextBox Text="{Binding PrefixText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </StackPanel>
 
-                                    <TextBlock Text="大小写转换只影响当前选择的修改对象；修改扩展名时会复用同一套规则链。" Foreground="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                                            <!-- Suffix 参数 -->
+                                                            <StackPanel Visibility="{Binding Kind, Converter={StaticResource EnumToVisibility}, ConverterParameter=Suffix}">
+                                                                <TextBlock Text="后缀内容"/>
+                                                                <TextBox Text="{Binding SuffixText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </StackPanel>
+
+                                                            <!-- RemoveText 参数 -->
+                                                            <StackPanel Visibility="{Binding Kind, Converter={StaticResource EnumToVisibility}, ConverterParameter=RemoveText}">
+                                                                <TextBlock Text="要删除的文字"/>
+                                                                <TextBox Text="{Binding RemoveText, UpdateSourceTrigger=PropertyChanged}"/>
+                                                            </StackPanel>
+
+                                                            <!-- Numbering 参数 -->
+                                                            <StackPanel Visibility="{Binding Kind, Converter={StaticResource EnumToVisibility}, ConverterParameter=Numbering}">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <StackPanel Width="86">
+                                                                        <TextBlock Text="起始"/>
+                                                                        <TextBox Text="{Binding NumberStart, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel Width="86">
+                                                                        <TextBlock Text="步长"/>
+                                                                        <TextBox Text="{Binding NumberStep, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel Width="86">
+                                                                        <TextBlock Text="补零"/>
+                                                                        <TextBox Text="{Binding NumberDigits, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                    </StackPanel>
+                                                                </StackPanel>
+                                                            </StackPanel>
+
+                                                            <!-- 大小写转换（无参数，只显示提示） -->
+                                                            <TextBlock Visibility="{Binding Kind, Converter={StaticResource IsCaseRuleConverter}}" Text="无需参数，直接转换大小写。" Foreground="{StaticResource MutedText}"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock Text="大小写转换只影响当前选择的修改对象；修改扩展名时会复用同一套规则链。" Foreground="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,10,0,0"/>
                                     </StackPanel>
                                 </ScrollViewer>
                             </Border>
